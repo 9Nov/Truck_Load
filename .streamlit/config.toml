@@ -1,0 +1,14 @@
+[theme]
+# Palette lifted from the F7/F8 Truck Slot Board so both tools read as one system:
+# grey canvas, white cards, one blue accent, semantic ok / warn / crit.
+base = "light"
+primaryColor = "#0B5FA5"
+backgroundColor = "#E7ECF0"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0E1720"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

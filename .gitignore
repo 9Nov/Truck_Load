@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS / editor
+.DS_Store
+Thumbs.db
+~$*.xlsx
+
+# Scratch / temp artifacts not meant to ship
+DO_Template.backup-with-scratch-data.xlsx
+
+# Private prompt referencing an internal Google Sheet - not for a public repo
+DO_Prompt_Template.md
+
+# Not yet confirmed for inclusion
+Logic concept/

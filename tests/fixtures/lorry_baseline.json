@@ -1,0 +1,857 @@
+{
+ "default_26": {
+  "jobs": [
+   {
+    "id": "DO1001",
+    "product": "MAA1",
+    "volume": 20.0,
+    "company": "SV",
+    "requested": 480,
+    "margin": 0
+   },
+   {
+    "id": "DO1002",
+    "product": "MMA2",
+    "volume": 29.0,
+    "company": "ศรีไทย",
+    "requested": 630,
+    "margin": 0
+   },
+   {
+    "id": "DO1003",
+    "product": "MAA3",
+    "volume": 14.0,
+    "company": "VIV",
+    "requested": 840,
+    "margin": 0
+   },
+   {
+    "id": "DO1004",
+    "product": "MMA2",
+    "volume": 14.0,
+    "company": "SV",
+    "requested": 990,
+    "margin": 5
+   },
+   {
+    "id": "DO1005",
+    "product": "MMA2",
+    "volume": 20.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 10
+   },
+   {
+    "id": "DO1006",
+    "product": "MAA2",
+    "volume": 14.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1007",
+    "product": "MMA1",
+    "volume": 28.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 10
+   },
+   {
+    "id": "DO1008",
+    "product": "MAA3",
+    "volume": 21.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1009",
+    "product": "MMA2",
+    "volume": 29.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1010",
+    "product": "MAA2",
+    "volume": 20.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1011",
+    "product": "MAA3",
+    "volume": 21.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1012",
+    "product": "MMA2",
+    "volume": 29.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1013",
+    "product": "MAA1",
+    "volume": 14.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1014",
+    "product": "MAA3",
+    "volume": 14.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1015",
+    "product": "MAA2",
+    "volume": 24.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1016",
+    "product": "MAA3",
+    "volume": 21.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1017",
+    "product": "MMA1",
+    "volume": 21.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1018",
+    "product": "MMA2",
+    "volume": 29.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 10
+   },
+   {
+    "id": "DO1019",
+    "product": "MAA2",
+    "volume": 22.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1020",
+    "product": "MAA1",
+    "volume": 14.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 10
+   },
+   {
+    "id": "DO1021",
+    "product": "MAA2",
+    "volume": 20.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1022",
+    "product": "MAA2",
+    "volume": 24.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1023",
+    "product": "n-BMA2",
+    "volume": 14.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1024",
+    "product": "i-BMA",
+    "volume": 14.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1025",
+    "product": "MMA2",
+    "volume": 14.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1026",
+    "product": "n-BMA1",
+    "volume": 13.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 0
+   }
+  ],
+  "cfg": {
+   "window_start_min": 480,
+   "window_end_min": 1410,
+   "breaks_min": [
+    [
+     720,
+     750
+    ],
+    [
+     1140,
+     1170
+    ]
+   ],
+   "realistic_buffer_min": 10,
+   "weigh_resource_min": 10
+  },
+  "schedule": [
+   {
+    "id": "DO1001",
+    "channel": "C",
+    "start": 480,
+    "end": 550,
+    "duration_min": 70,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1002",
+    "channel": "B",
+    "start": 630,
+    "end": 710,
+    "duration_min": 80,
+    "bracket": "29MT"
+   },
+   {
+    "id": "DO1003",
+    "channel": "B",
+    "start": 840,
+    "end": 900,
+    "duration_min": 60,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1004",
+    "channel": "A",
+    "start": 990,
+    "end": 1055,
+    "duration_min": 65,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1005",
+    "channel": "B",
+    "start": 760,
+    "end": 835,
+    "duration_min": 75,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1006",
+    "channel": "A",
+    "start": 660,
+    "end": 720,
+    "duration_min": 60,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1007",
+    "channel": "C",
+    "start": 1020,
+    "end": 1120,
+    "duration_min": 100,
+    "bracket": "29MT"
+   },
+   {
+    "id": "DO1008",
+    "channel": "B",
+    "start": 1170,
+    "end": 1240,
+    "duration_min": 70,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1009",
+    "channel": "B",
+    "start": 1050,
+    "end": 1130,
+    "duration_min": 80,
+    "bracket": "29MT"
+   },
+   {
+    "id": "DO1010",
+    "channel": "C",
+    "start": 875,
+    "end": 945,
+    "duration_min": 70,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1011",
+    "channel": "B",
+    "start": 490,
+    "end": 560,
+    "duration_min": 70,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1012",
+    "channel": "A",
+    "start": 1180,
+    "end": 1260,
+    "duration_min": 80,
+    "bracket": "29MT"
+   },
+   {
+    "id": "DO1013",
+    "channel": "A",
+    "start": 850,
+    "end": 910,
+    "duration_min": 60,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1014",
+    "channel": "B",
+    "start": 565,
+    "end": 625,
+    "duration_min": 60,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1015",
+    "channel": "A",
+    "start": 1060,
+    "end": 1140,
+    "duration_min": 80,
+    "bracket": "22-24MT"
+   },
+   {
+    "id": "DO1016",
+    "channel": "B",
+    "start": 905,
+    "end": 975,
+    "duration_min": 70,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1017",
+    "channel": "C",
+    "start": 620,
+    "end": 695,
+    "duration_min": 75,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1018",
+    "channel": "A",
+    "start": 500,
+    "end": 590,
+    "duration_min": 90,
+    "bracket": "29MT"
+   },
+   {
+    "id": "DO1019",
+    "channel": "A",
+    "start": 770,
+    "end": 845,
+    "duration_min": 75,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1020",
+    "channel": "A",
+    "start": 590,
+    "end": 660,
+    "duration_min": 70,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1021",
+    "channel": "A",
+    "start": 915,
+    "end": 985,
+    "duration_min": 70,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1022",
+    "channel": "C",
+    "start": 945,
+    "end": 1020,
+    "duration_min": 75,
+    "bracket": "22-24MT"
+   },
+   {
+    "id": "DO1023",
+    "channel": "C",
+    "start": 555,
+    "end": 615,
+    "duration_min": 60,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1024",
+    "channel": "C",
+    "start": 810,
+    "end": 875,
+    "duration_min": 65,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1025",
+    "channel": "B",
+    "start": 980,
+    "end": 1045,
+    "duration_min": 65,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1026",
+    "channel": "C",
+    "start": 750,
+    "end": 810,
+    "duration_min": 60,
+    "bracket": "14MT"
+   }
+  ],
+  "dropped": []
+ },
+ "custom_30": {
+  "jobs": [
+   {
+    "id": "DO1001",
+    "product": "MAA2",
+    "volume": 24.0,
+    "company": "SV",
+    "requested": 480,
+    "margin": 10
+   },
+   {
+    "id": "DO1002",
+    "product": "MAA3",
+    "volume": 14.0,
+    "company": "ศรีไทย",
+    "requested": 630,
+    "margin": 10
+   },
+   {
+    "id": "DO1003",
+    "product": "MAA2",
+    "volume": 20.0,
+    "company": "ศรีไทย",
+    "requested": 840,
+    "margin": 5
+   },
+   {
+    "id": "DO1004",
+    "product": "MAA1",
+    "volume": 20.0,
+    "company": "ศรีไทย",
+    "requested": 990,
+    "margin": 10
+   },
+   {
+    "id": "DO1005",
+    "product": "n-BMA1",
+    "volume": 13.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1006",
+    "product": "MAA2",
+    "volume": 20.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1007",
+    "product": "MAA3",
+    "volume": 14.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1008",
+    "product": "MMA1",
+    "volume": 21.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1009",
+    "product": "n-BMA2",
+    "volume": 14.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1010",
+    "product": "MAA3",
+    "volume": 14.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1011",
+    "product": "i-BMA",
+    "volume": 14.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1012",
+    "product": "n-BMA1",
+    "volume": 13.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1013",
+    "product": "MAA2",
+    "volume": 14.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1014",
+    "product": "MAA1",
+    "volume": 20.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1015",
+    "product": "MMA2",
+    "volume": 14.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1016",
+    "product": "MAA1",
+    "volume": 14.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1017",
+    "product": "MMA2",
+    "volume": 14.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1018",
+    "product": "MMA1",
+    "volume": 21.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1019",
+    "product": "MAA1",
+    "volume": 24.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1020",
+    "product": "MAA3",
+    "volume": 23.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1021",
+    "product": "MAA1",
+    "volume": 14.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1022",
+    "product": "MMA2",
+    "volume": 25.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1023",
+    "product": "MMA1",
+    "volume": 14.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1024",
+    "product": "MAA2",
+    "volume": 24.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 10
+   },
+   {
+    "id": "DO1025",
+    "product": "MMA1",
+    "volume": 25.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1026",
+    "product": "n-BMA2",
+    "volume": 12.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1027",
+    "product": "MMA2",
+    "volume": 25.0,
+    "company": "SV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1028",
+    "product": "MMA2",
+    "volume": 22.0,
+    "company": "VIV",
+    "requested": null,
+    "margin": 0
+   },
+   {
+    "id": "DO1029",
+    "product": "MMA2",
+    "volume": 20.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 5
+   },
+   {
+    "id": "DO1030",
+    "product": "i-BMA",
+    "volume": 12.0,
+    "company": "ศรีไทย",
+    "requested": null,
+    "margin": 0
+   }
+  ],
+  "cfg": {
+   "window_start_min": 360,
+   "window_end_min": 1080,
+   "breaks_min": [
+    [
+     690,
+     735
+    ]
+   ],
+   "realistic_buffer_min": 15,
+   "weigh_resource_min": 15
+  },
+  "schedule": [
+   {
+    "id": "DO1001",
+    "channel": "A",
+    "start": 480,
+    "end": 570,
+    "duration_min": 90,
+    "bracket": "22-24MT"
+   },
+   {
+    "id": "DO1003",
+    "channel": "A",
+    "start": 840,
+    "end": 920,
+    "duration_min": 80,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1004",
+    "channel": "C",
+    "start": 990,
+    "end": 1075,
+    "duration_min": 85,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1006",
+    "channel": "A",
+    "start": 570,
+    "end": 645,
+    "duration_min": 75,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1008",
+    "channel": "C",
+    "start": 870,
+    "end": 950,
+    "duration_min": 80,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1011",
+    "channel": "C",
+    "start": 360,
+    "end": 425,
+    "duration_min": 65,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1014",
+    "channel": "A",
+    "start": 750,
+    "end": 825,
+    "duration_min": 75,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1016",
+    "channel": "A",
+    "start": 920,
+    "end": 990,
+    "duration_min": 70,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1018",
+    "channel": "C",
+    "start": 425,
+    "end": 510,
+    "duration_min": 85,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1019",
+    "channel": "A",
+    "start": 375,
+    "end": 455,
+    "duration_min": 80,
+    "bracket": "22-24MT"
+   },
+   {
+    "id": "DO1020",
+    "channel": "B",
+    "start": 825,
+    "end": 905,
+    "duration_min": 80,
+    "bracket": "22-24MT"
+   },
+   {
+    "id": "DO1022",
+    "channel": "B",
+    "start": 390,
+    "end": 470,
+    "duration_min": 80,
+    "bracket": "24-25MT"
+   },
+   {
+    "id": "DO1024",
+    "channel": "C",
+    "start": 780,
+    "end": 870,
+    "duration_min": 90,
+    "bracket": "22-24MT"
+   },
+   {
+    "id": "DO1025",
+    "channel": "C",
+    "start": 510,
+    "end": 600,
+    "duration_min": 90,
+    "bracket": "24-25MT"
+   },
+   {
+    "id": "DO1026",
+    "channel": "C",
+    "start": 615,
+    "end": 685,
+    "duration_min": 70,
+    "bracket": "14MT"
+   },
+   {
+    "id": "DO1027",
+    "channel": "B",
+    "start": 535,
+    "end": 615,
+    "duration_min": 80,
+    "bracket": "24-25MT"
+   },
+   {
+    "id": "DO1028",
+    "channel": "B",
+    "start": 950,
+    "end": 1020,
+    "duration_min": 70,
+    "bracket": "20-22MT"
+   },
+   {
+    "id": "DO1029",
+    "channel": "B",
+    "start": 735,
+    "end": 810,
+    "duration_min": 75,
+    "bracket": "20-22MT"
+   }
+  ],
+  "dropped": [
+   "DO1002",
+   "DO1005",
+   "DO1007",
+   "DO1009",
+   "DO1010",
+   "DO1012",
+   "DO1013",
+   "DO1015",
+   "DO1017",
+   "DO1021",
+   "DO1023",
+   "DO1030"
+  ]
+ }
+}
