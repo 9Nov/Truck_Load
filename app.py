@@ -36,6 +36,7 @@ from scheduler_engine import (
     SRC_ACTUAL,
     SLOT,
     TRANSPORT_COMPANIES,
+    TRUCK_GAP_MIN_DEFAULT,
     SchedulerConfig,
     StabilityWeights,
     baseline_from_schedule,
@@ -70,6 +71,7 @@ import maintenance
 import std_times
 import swap_planner
 import ui_calendar
+import ui_reschedule
 import ui_theme
 from ui_theme import FAMILY_COLORS
 
@@ -93,6 +95,7 @@ DEFAULTS = {
     "replan_result": None, "replan_meta": None,
     "swap_decisions": [], "swap_dismissed": [], "maintenance": [],
     "std_lorry_rows": None, "std_yusen_rows": None,
+    "plan_overrides": {},
 }
 for key, value in DEFAULTS.items():
     if key not in st.session_state:
@@ -130,7 +133,8 @@ def cfg_label(cfg) -> str:
     breaks = "".join(f" พัก{min_to_hhmm(b)}" for b, _ in cfg.breaks_min)
     return (f"{min_to_hhmm(cfg.window_start_min)}–{min_to_hhmm(cfg.window_end_min)},"
             f"{breaks}, weigh {cfg.weigh_resource_min}m, std Σ{std_total(cfg)}m"
-            + (f", ปิดช่อง {len(cfg.blackouts)} ช่วง" if cfg.blackouts else ""))
+            + (f", ปิดช่อง {len(cfg.blackouts)} ช่วง" if cfg.blackouts else "")
+            + (f", gap รถ {cfg.truck_gap_min}m" if cfg.truck_gap_min else ""))
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +224,11 @@ with st.sidebar.expander("Timing", expanded=False):
         min_value=5, max_value=15, value=10, step=5,
         help="ของ 15 นาทีเต็ม ส่วนที่เหลือเป็นเอกสาร/ขับเข้าออก "
              "ช่องโหลดยังถูกจองเต็ม 15 + Load + 15 นาทีเหมือนเดิม")
+    truck_gap_min = st.number_input(
+        "รถคันเดียวกัน (Plan truck) ต้องเว้นห่างกันอย่างน้อย (นาที)",
+        min_value=0, max_value=600, value=TRUCK_GAP_MIN_DEFAULT, step=5,
+        help="ใช้เมื่อกรอกคอลัมน์ Plan truck ในไฟล์ DO — รถคันเดียวกันวิ่งหลายรอบ "
+             "ต้องมีเวลาขับออก กลับรถ แล้วต่อคิวใหม่ ตั้งเป็น 0 เพื่อปิดเงื่อนไขนี้")
 
 with st.sidebar.expander("Solver", expanded=False):
     time_limit = st.number_input(
@@ -250,6 +259,7 @@ cfg = SchedulerConfig(
     blackouts=blackouts,
     lorry_std=lorry_std,
     yusen_std=yusen_std,
+    truck_gap_min=int(truck_gap_min),
 )
 cfg_problems = cfg.validate() + blackout_errors
 
@@ -309,11 +319,96 @@ st.sidebar.caption(
 # ---------------------------------------------------------------------------
 # shared result rendering
 # ---------------------------------------------------------------------------
-def render_conflict(result):
+def _do_df_row(do_id):
+    """Index of a DO No. in the editable DO table, or None if it is gone."""
+    df = st.session_state.do_df
+    mask = df["DO No."].astype(str) == str(do_id)
+    return mask[mask].index[0] if mask.any() else None
+
+
+def _resolve_now(cfg, time_limit):
+    """Re-run the solver against the current DO table and stash the result --
+    the same thing "Run Scheduler" does, used here so confirming a fix inside a
+    dialog takes effect immediately instead of leaving the planner to notice the
+    table changed and press the button again."""
+    jobs, _errors, _warnings = rows_to_jobs(st.session_state.do_df, cfg)
+    for j in jobs:
+        override = st.session_state.plan_overrides.get(j["id"])
+        if override:
+            j["pin_channel"], j["requested"] = override
+    t0 = dt.datetime.now()
+    try:
+        result = build_and_solve(jobs, config=cfg, time_limit=float(time_limit))
+    except Exception as exc:  # noqa: BLE001 - never leave the planner with a blank page
+        result = {"error": "engine_exception", "message": str(exc), "schedule": [],
+                  "dropped": [], "validation": [], "channel_summary": [], "config": cfg}
+    elapsed = (dt.datetime.now() - t0).total_seconds()
+    st.session_state.result = result
+    st.session_state.run_meta = {"elapsed": elapsed, "n_jobs": len(jobs),
+                                 "at": dt.datetime.now().strftime("%H:%M:%S"),
+                                 "cfg_label": cfg_label(cfg)}
+    if not result.get("error"):
+        st.session_state.baseline = baseline_from_schedule(result["schedule"])
+        st.session_state.baseline_schedule = result["schedule"]
+        st.session_state.baseline_meta = {"at": st.session_state.run_meta["at"],
+                                          "cfg_label": cfg_label(cfg)}
+        st.session_state.status_sig = None
+        st.session_state.replan_result = None
+
+
+@st.dialog("ปรับเวลาที่ขอไว้")
+def _relax_dialog(do_id, cfg, time_limit):
+    row_idx = _do_df_row(do_id)
+    if row_idx is None:
+        st.warning(f"ไม่พบ {do_id} ในตาราง DO แล้ว — อาจถูกลบหรือแก้ไขไปแล้ว")
+        if st.button("ปิด", width="stretch"):
+            st.rerun()
+        return
+
+    df = st.session_state.do_df
+    current = str(df.loc[row_idx, "Requested Time"] or "").strip()
+    st.write(f"**{do_id}** — เวลาที่ขอไว้ตอนนี้: **{current or 'ยืดหยุ่น (ไม่ได้ล็อก)'}**")
+    choice = st.radio(
+        "เลือกการปรับ",
+        ["ปลดล็อกเวลา (ให้ระบบเลือกเวลาที่ดีที่สุดให้)", "เปลี่ยนเป็นเวลาอื่น"],
+        index=0 if not current else 1)
+    new_time = ""
+    if choice.startswith("เปลี่ยน"):
+        default_t = dt.time(8, 0)
+        parsed = hhmm_to_min(current)
+        if parsed is not None:
+            default_t = dt.time(parsed // 60 % 24, parsed % 60)
+        t = st.time_input("เวลาที่ต้องการ", default_t, step=300)
+        new_time = f"{t.hour:02d}:{t.minute:02d}"
+
+    c1, c2 = st.columns(2)
+    if c1.button("✅ ยืนยัน แล้วจัดคิวใหม่", type="primary", width="stretch"):
+        st.session_state.do_df.loc[row_idx, "Requested Time"] = new_time
+        with st.spinner("กำลังจัดคิวใหม่ …"):
+            _resolve_now(cfg, time_limit)
+        st.rerun()
+    if c2.button("✖️ ยกเลิก", width="stretch"):
+        st.rerun()
+
+
+def render_conflict(result, cfg=None, time_limit=None):
+    """cfg/time_limit enable the click-to-fix dialog (plan mode, where a conflict
+    can be resolved by editing the DO table and re-solving immediately). Without
+    them (the re-plan page, which keeps its own separate result/session-state and
+    job-building from GPS + frozen jobs, not the DO table) this falls back to the
+    old plain read-only list."""
     st.error("⛔ **Hard-deadline conflict — ระบบไม่เลื่อนเวลาให้เอง**\n\n" + result["message"])
-    st.markdown("**DO ที่ขัดแย้งกัน (ปลดตัวใดตัวหนึ่งแล้วทั้งวันจะจัดได้):**")
-    st.dataframe(pd.DataFrame({"DO No. ที่ต้องพิจารณาเปลี่ยนเวลา": result["candidates_to_relax"]}),
-                 width="stretch", hide_index=True)
+    candidates = result["candidates_to_relax"]
+    if cfg is not None and time_limit is not None:
+        st.markdown("**DO ที่ขัดแย้งกัน (ปลดตัวใดตัวหนึ่งแล้วทั้งวันจะจัดได้) — คลิกเพื่อปรับเวลา:**")
+        cols = st.columns(min(4, len(candidates)) or 1)
+        for i, do_id in enumerate(candidates):
+            if cols[i % len(cols)].button(f"🔧 {do_id}", key=f"relax_{do_id}", width="stretch"):
+                _relax_dialog(do_id, cfg, time_limit)
+    else:
+        st.markdown("**DO ที่ขัดแย้งกัน (ปลดตัวใดตัวหนึ่งแล้วทั้งวันจะจัดได้):**")
+        st.dataframe(pd.DataFrame({"DO No. ที่ต้องพิจารณาเปลี่ยนเวลา": candidates}),
+                     width="stretch", hide_index=True)
     st.info("ผู้วางแผนต้องเป็นคนตัดสินใจว่าจะเปลี่ยน Requested Time ของ DO ไหน "
             "แล้วสั่งจัดคิวใหม่ — ระบบจะไม่เลือกดร็อปเองเงียบ ๆ")
     if result.get("fixed_infeasible"):
@@ -341,6 +436,20 @@ def render_selfcheck(result):
     return True
 
 
+def _movable_rows(schedule):
+    """DOs a planner may still send through the click-to-reschedule flow.
+
+    A DO the planner already moved once is pinned (pin_channel + requested) so
+    the solver keeps it exactly there, which also makes it read as `is_fixed` --
+    same as a genuine hard-deadline DO from the upload. Without the
+    plan_overrides check below that would make a moved DO un-reschedulable after
+    its first move; checking plan_overrides tells the two apart so only a real
+    upload-side hard deadline (never in plan_overrides) stays off-limits."""
+    overrides = st.session_state.get("plan_overrides", {})
+    return [r for r in schedule if not r.get("is_locked")
+            and (not r["is_fixed"] or r["id"] in overrides)]
+
+
 def render_results(result, res_cfg, *, now_min=None, gps_table=None, key: str = "plan"):
     schedule, dropped = result["schedule"], result["dropped"]
     with_eta = now_min is not None
@@ -363,8 +472,24 @@ def render_results(result, res_cfg, *, now_min=None, gps_table=None, key: str = 
                     "ความสูง", options=[44, 62, 84, 112], value=62, label_visibility="collapsed",
                     format_func=lambda v: f"{v} px/ชม.", key=f"zoom_{key}",
                     help="ยืด/ย่อความสูงของแกนเวลา")
-                ui_calendar.render(schedule, res_cfg, result["channel_summary"],
-                                   now_min=now_min, px_per_hour=int(zoom))
+                if key == "plan":
+                    movable_ids = {r["id"] for r in _movable_rows(schedule)}
+                    st.caption("👆 คลิกการ์ดคิวที่ไม่มี 🔒 เพื่อเลือกไปย้าย (ดูช่วงว่างและยืนยันได้ที่ขั้น 4 ด้านล่าง)")
+                    picked = ui_calendar.render(schedule, res_cfg, result["channel_summary"],
+                                                now_min=now_min, px_per_hour=int(zoom),
+                                                clickable_ids=movable_ids,
+                                                selected_id=st.session_state.get("reschedule_pick"))
+                    if picked:
+                        # Always rerun, even re-picking the already-selected card: the
+                        # calendar's click bridge mounts a fresh listener only once it
+                        # re-renders (see ui_calendar's nonce comment) -- skipping the
+                        # rerun here would leave the OLD, already-fired listener on
+                        # screen with nothing live to catch the NEXT click.
+                        st.session_state["reschedule_pick"] = picked
+                        st.rerun()
+                else:
+                    ui_calendar.render(schedule, res_cfg, result["channel_summary"],
+                                      now_min=now_min, px_per_hour=int(zoom))
             else:
                 st.plotly_chart(gantt_figure(schedule, res_cfg, show_weigh_lane, now_min=now_min),
                                 width="stretch", key=f"gantt_{key}")
@@ -792,6 +917,10 @@ def page_plan():
                 "Margin (min)": st.column_config.NumberColumn(
                     "เผื่อเวลา (นาที)", min_value=0, max_value=120, step=5,
                     help="เวลาเผื่อเฉพาะ DO นี้ บวกต่อจาก Buffer ของแถวในหน้า ⚙️ เวลามาตรฐาน"),
+                "Plan truck": st.column_config.TextColumn(
+                    "รถ (Plan truck)", width="small",
+                    help="ไม่บังคับ — กรอกทะเบียน/รหัสรถเพื่อบังคับเว้นระยะเวลาระหว่างรอบของรถคันเดียวกัน "
+                         "(ตั้งค่าใน sidebar > Timing)"),
             },
         )
         st.session_state.do_df = edited
@@ -801,6 +930,13 @@ def page_plan():
                     icon="📤")
 
         jobs, errors, warnings = rows_to_jobs(edited, cfg)
+        # a confirmed click-to-reschedule pick (plan mode only) is folded in here as
+        # a pin_channel + requested override, so a re-solve is what actually moves
+        # the truck - picking a slot never touches the schedule directly
+        for j in jobs:
+            override = st.session_state.plan_overrides.get(j["id"])
+            if override:
+                j["pin_channel"], j["requested"] = override
         n_fixed = sum(1 for j in jobs if j["requested"] is not None)
         n_yusen = sum(1 for j in jobs if is_yusen(j["company"]))
         ui_theme.sums([
@@ -873,7 +1009,7 @@ def page_plan():
                        "แผนด้านล่างยังเป็นของค่าเดิม กดจัดคิวอีกครั้งเพื่ออัปเดต", icon="⚠️")
 
         if result.get("error") == "hard_deadline_conflict":
-            render_conflict(result)
+            render_conflict(result, cfg, time_limit)
             return
         if result.get("error"):
             st.error(f"Solver ไม่สามารถหาคำตอบได้: {result.get('message', result['error'])}")
@@ -897,6 +1033,48 @@ def page_plan():
         render_results(result, res_cfg, key="plan")
         st.info("แผนนี้ถูกเก็บเป็น **แผนหลัก** แล้ว — ระหว่างวันถ้ารถมาไม่ตรงเวลา "
                 "ให้สลับไปโหมด 🔄 ปรับแผนระหว่างวัน ที่ sidebar", icon="📌")
+
+    reschedule_result = None
+    movable = _movable_rows(schedule)
+    if movable:
+        movable_ids = {r["id"] for r in movable}
+        if st.session_state.get("reschedule_pick") not in movable_ids:
+            st.session_state["reschedule_pick"] = movable[0]["id"]
+        target_job = next(r for r in movable if r["id"] == st.session_state["reschedule_pick"])
+        with st.container(border=True):
+            ui_theme.head("ขั้น 4", "อยากย้ายคิวไหนไหม",
+                          "คลิกการ์ดคิวในปฏิทิน (ขั้น 3) เพื่อเลือก แล้วคลิกช่วงเวลาที่ว่างในตารางด้านล่าง")
+            st.caption(f"กำลังเลือก: **{target_job['id']} · {target_job['product']} · "
+                       f"ช่อง {target_job['channel']} {target_job['start_hhmm']}**")
+            reschedule_result = ui_reschedule.render(target_job, schedule, res_cfg)
+
+    if reschedule_result:
+        do_id = reschedule_result.get("do_id")
+        new_channel, new_start = reschedule_result.get("channel"), reschedule_result.get("start_min")
+        st.session_state.plan_overrides[do_id] = (new_channel, new_start)
+        for j in jobs:
+            if j["id"] == do_id:
+                j["pin_channel"], j["requested"] = new_channel, new_start
+        with st.spinner(f"กำลังย้าย {do_id} ไปช่อง {new_channel} {min_to_hhmm(new_start)} แล้วจัดคิวใหม่ …"):
+            t0 = dt.datetime.now()
+            try:
+                new_result = build_and_solve(jobs, config=cfg, time_limit=float(time_limit))
+            except Exception as exc:  # noqa: BLE001 - never leave the planner with a blank page
+                new_result = {"error": "engine_exception", "message": str(exc), "schedule": [],
+                              "dropped": [], "validation": [], "channel_summary": [], "config": cfg}
+            elapsed = (dt.datetime.now() - t0).total_seconds()
+        st.session_state.result = new_result
+        st.session_state.run_meta = {"elapsed": elapsed, "n_jobs": len(jobs),
+                                     "at": dt.datetime.now().strftime("%H:%M:%S"),
+                                     "cfg_label": cfg_label(cfg)}
+        if not new_result.get("error"):
+            st.session_state.baseline = baseline_from_schedule(new_result["schedule"])
+            st.session_state.baseline_schedule = new_result["schedule"]
+            st.session_state.baseline_meta = {"at": st.session_state.run_meta["at"],
+                                              "cfg_label": cfg_label(cfg)}
+            st.session_state.status_sig = None
+            st.session_state.replan_result = None
+        st.rerun()
 
 
 # ---------------------------------------------------------------------------

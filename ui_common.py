@@ -34,7 +34,8 @@ from scheduler_engine import (
     min_to_hhmm,
 )
 
-COLS = ["DO No.", "Product", "Volume (ton)", "Transport Co.", "Requested Time", "Margin (min)"]
+COLS = ["DO No.", "Product", "Volume (ton)", "Transport Co.", "Requested Time", "Margin (min)",
+        "Plan truck"]
 GPS_COLS = ["DO No.", "Lat", "Lon", "Last seen"]
 BLACKOUT_LABEL = "⛔ ปิดช่อง"
 
@@ -82,8 +83,11 @@ def clean_time_cell(v) -> str:
 
 
 def normalise_upload(raw: pd.DataFrame) -> pd.DataFrame:
-    """Map an uploaded sheet onto the six expected columns, tolerating common
-    header spellings ('DO', 'do_no', 'Volume', 'Requested', ...)."""
+    """Map an uploaded sheet onto the expected columns, tolerating common
+    header spellings ('DO', 'do_no', 'Volume', 'Requested', ...).
+
+    "Plan truck" is optional: an older upload with no such column simply gets an
+    all-blank one from _map_columns, so nothing downstream needs to special-case it."""
     alias = {
         "DO No.": ["do no.", "do no", "do_no", "do", "dono", "do number", "เลขที่ do"],
         "Product": ["product", "prod", "grade", "สินค้า"],
@@ -93,12 +97,14 @@ def normalise_upload(raw: pd.DataFrame) -> pd.DataFrame:
         "Requested Time": ["requested time", "requested", "request time", "time", "req time",
                            "เวลาที่ต้องการ", "เวลา"],
         "Margin (min)": ["margin (min)", "margin", "margin min", "extra", "buffer", "เผื่อเวลา"],
+        "Plan truck": ["plan truck", "plan_truck", "truck", "truck no.", "truck no", "plate",
+                       "vehicle", "ทะเบียนรถ", "รถ"],
     }
     out = _map_columns(raw, alias, COLS)
     out["Requested Time"] = out["Requested Time"].map(clean_time_cell)
     out["Volume (ton)"] = pd.to_numeric(out["Volume (ton)"], errors="coerce")
     out["Margin (min)"] = pd.to_numeric(out["Margin (min)"], errors="coerce").fillna(0)
-    for c in ("DO No.", "Product", "Transport Co."):
+    for c in ("DO No.", "Product", "Transport Co.", "Plan truck"):
         out[c] = out[c].map(lambda v: "" if _blank(v) else str(v).strip())
     return out
 
@@ -184,8 +190,11 @@ def rows_to_jobs(df: pd.DataFrame, cfg=None):
             warnings.append(f"{do_no}: margin {margin} min is not a multiple of {SLOT}; "
                             f"the load time is rounded to the nearest {SLOT}-minute slot.")
 
+        plan_truck = str(row.get("Plan truck") or "").strip()
+
         jobs.append({"id": do_no, "product": product, "volume": volume,
-                     "company": company, "requested": requested, "margin": margin})
+                     "company": company, "requested": requested, "margin": margin,
+                     "plan_truck": plan_truck})
     return jobs, errors, warnings
 
 
@@ -324,6 +333,7 @@ def schedule_dataframe(schedule, with_eta: bool = False) -> pd.DataFrame:
             "Duration (min)": r["duration_min"],
             "Standard": r.get("std_source", ""), "Bracket": r["bracket"],
             "Margin (min)": r["margin"],
+            "Plan truck": r.get("plan_truck") or "",
         }
         if with_eta:
             row["ETA"] = r.get("earliest_hhmm") or "-"

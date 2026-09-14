@@ -43,6 +43,7 @@ def sample_df(n: int = 26, seed: int = 7) -> pd.DataFrame:
             "Transport Co.": rnd.choice(LORRY_COMPANIES),
             "Requested Time": SAMPLE_FIXED_TIMES[i] if i < len(SAMPLE_FIXED_TIMES) else "",
             "Margin (min)": rnd.choice([0, 0, 0, 5, 10]),
+            "Plan truck": "",
         })
     return pd.DataFrame(rows, columns=COLS)
 

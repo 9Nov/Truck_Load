@@ -120,6 +120,11 @@ YUSEN_WEIGH_OVERHEAD = WEIGH_IN_LORRY + WEIGH_OUT_LORRY  # 30 min taken out of t
 STD_SOURCE_LORRY = "LORRY"
 STD_SOURCE_YUSEN = "Yusen ISO Tank"
 
+# Minimum minutes a physical truck (tracked by its "Plan truck" label) must rest
+# between the end of one job and the start of its next one -- driving away, turning
+# around and queuing back in takes real time even when the bay itself is free.
+TRUCK_GAP_MIN_DEFAULT = 300
+
 
 # ---------------------------------------------------------------------------
 # Planning tables: what the app plans with by default
@@ -249,6 +254,11 @@ class SchedulerConfig:
     # the solver costs the day with.
     lorry_std: dict = field(default_factory=dict)
     yusen_std: dict = field(default_factory=dict)
+    # Same-truck cooldown: minutes required between one job's end and the next job's
+    # start when both rows carry the same non-blank "Plan truck" label. 0 disables the
+    # constraint entirely (no rows added, no self-check) -- old uploads with no Plan
+    # truck column never populate the label, so this never fires for them either.
+    truck_gap_min: int = TRUCK_GAP_MIN_DEFAULT
 
     # ---- derived ----
     @property
@@ -258,6 +268,10 @@ class SchedulerConfig:
     @property
     def weigh_resource_slots(self) -> int:
         return max(1, round(self.weigh_resource_min / SLOT))
+
+    @property
+    def truck_gap_slots(self) -> int:
+        return max(0, round(self.truck_gap_min / SLOT))
 
     def lorry_entry(self, group, bracket) -> Optional[StdEntry]:
         table = self.lorry_std or LORRY_STD_DEFAULT
@@ -323,6 +337,8 @@ class SchedulerConfig:
             problems.append("Yusen realistic buffer cannot be negative.")
         if not (0 < self.weigh_resource_min <= WEIGH_IN_LORRY):
             problems.append(f"Shared weigh-resource time must be between 1 and {WEIGH_IN_LORRY} minutes.")
+        if self.truck_gap_min < 0:
+            problems.append("Truck cooldown gap cannot be negative.")
         for bs, be in self.breaks_min:
             if be <= bs:
                 problems.append(f"Break {min_to_hhmm(bs)}-{min_to_hhmm(be)} ends before it starts.")
@@ -551,6 +567,7 @@ def build_and_solve(jobs, config=None, time_limit=120.0,
             "earliest_t": _min_to_slot_ceil(earliest, cfg) if earliest is not None else None,
             "requested_hhmm": min_to_hhmm(requested) if requested is not None else "",
             "earliest_hhmm": min_to_hhmm(earliest) if earliest is not None else "",
+            "plan_truck": str(j.get("plan_truck") or "").strip(),
         })
 
     no_std = [j for j in prepared if j["total_slots"] is None]
@@ -632,6 +649,33 @@ def build_and_solve(jobs, config=None, time_limit=120.0,
         if len(weigh_occ[tau]) > 1:
             resource_rows.append((weigh_occ[tau], "<=", 1))
 
+    # --- (d) same-truck cooldown: one physical truck can only be at one job at a
+    # time, and needs `truck_gap_min` after dropping one load before it can start the
+    # next -- driving off, turning around and queuing back in takes real time even
+    # when the bay itself is free. Modelled by giving each job's occupancy an extra
+    # `gap_slots` tail: two jobs sharing a truck conflict (need <=1 of them chosen at
+    # any shared tau) exactly when their tail-extended windows overlap, which happens
+    # exactly when the true gap between them (in either order) is under the minimum.
+    gap_slots = cfg.truck_gap_slots
+    if gap_slots > 0:
+        truck_groups = {}
+        for ji, j in enumerate(prepared):
+            if j["plan_truck"]:
+                truck_groups.setdefault(j["plan_truck"], []).append(ji)
+        truck_job_set = {ji for jis in truck_groups.values() if len(jis) > 1 for ji in jis}
+        if truck_job_set:
+            truck_occ = {}
+            for ji, c, t in var_list:
+                if ji not in truck_job_set:
+                    continue
+                truck = prepared[ji]["plan_truck"]
+                end_tau = min(T, t + prepared[ji]["total_slots"] + gap_slots)
+                for tau in range(t, end_tau):
+                    truck_occ.setdefault((truck, tau), []).append(var_index[(ji, c, t)])
+            for cols in truck_occ.values():
+                if len(cols) > 1:
+                    resource_rows.append((cols, "<=", 1))
+
     rows = job_rows + resource_rows
     A, lb, ub = _build_matrix(rows, n_vars)
     constraints = LinearConstraint(A, lb, ub)
@@ -712,6 +756,7 @@ def build_and_solve(jobs, config=None, time_limit=120.0,
             "std_source": j["std_source"],
             "duration_min": j["total_slots"] * SLOT,
             "status": j.get("status", ""),
+            "plan_truck": j["plan_truck"],
         })
 
     for j in no_std:
@@ -865,6 +910,21 @@ def validate_schedule(schedule, cfg, now_min=None):
         if now_min is not None and r["start"] < now_min:
             problems.append(f"{r['id']} starts {r['start_hhmm']}, in the past "
                             f"(now is {min_to_hhmm(now_min)})")
+
+    if cfg.truck_gap_min > 0:
+        by_truck = {}
+        for r in schedule:
+            truck = (r.get("plan_truck") or "").strip()
+            if truck:
+                by_truck.setdefault(truck, []).append(r)
+        for truck, rows in by_truck.items():
+            rows = sorted(rows, key=lambda r: r["start"])
+            for a, b in zip(rows, rows[1:]):
+                gap = b["start"] - a["end"]
+                if gap < cfg.truck_gap_min:
+                    problems.append(f"รถ {truck}: {a['id']} จบ {a['end_hhmm']} แล้ว {b['id']} "
+                                    f"เริ่ม {b['start_hhmm']} ห่างกันแค่ {gap} นาที "
+                                    f"(ต้องเว้นอย่างน้อย {cfg.truck_gap_min} นาที)")
     return problems
 
 

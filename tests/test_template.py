@@ -21,7 +21,8 @@ from scheduler_engine import (  # noqa: E402
     hhmm_to_min,
 )
 
-COLS = ["DO No.", "Product", "Volume (ton)", "Transport Co.", "Requested Time", "Margin (min)"]
+COLS = ["DO No.", "Product", "Volume (ton)", "Transport Co.", "Requested Time", "Margin (min)",
+        "Plan truck"]
 
 # build a fresh copy so the test covers the generator, not a stale file
 path = Path(tempfile.gettempdir()) / "DO_Template_test.xlsx"
@@ -37,7 +38,7 @@ assert len(first) == 0, "the input sheet must start empty"
 
 # 2. the worked example
 ex = pd.read_excel(path, sheet_name="Example")
-assert list(ex.columns)[:6] == COLS, list(ex.columns)
+assert list(ex.columns)[:len(COLS)] == COLS, list(ex.columns)
 ex = ex[COLS].dropna(how="all")  # a free-text note sits outside the data columns
 print("\nexample rows:")
 print(ex.to_string(index=False))
@@ -53,9 +54,12 @@ for _, row in ex.iterrows():
         requested = hhmm_to_min(raw)
         assert requested is not None, f"unparseable requested time: {raw!r} ({type(raw)})"
         assert requested % 5 == 0, f"{raw!r} is not on the 5-minute grid"
+    plan_truck = row.get("Plan truck")
+    plan_truck = "" if plan_truck is None or str(plan_truck).strip().lower() == "nan" else str(plan_truck).strip()
     jobs.append({"id": row["DO No."], "product": row["Product"],
                  "volume": float(row["Volume (ton)"]), "company": row["Transport Co."],
-                 "requested": requested, "margin": int(row["Margin (min)"] or 0)})
+                 "requested": requested, "margin": int(row["Margin (min)"] or 0),
+                 "plan_truck": plan_truck})
 
 # 4. and they really schedule
 res = build_and_solve(jobs, config=SchedulerConfig())

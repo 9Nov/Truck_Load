@@ -223,7 +223,8 @@ assert all(r[st_.BUFFER] == (10 if r[st_.SOURCE] != "Actual (P75 จริง)" 
 at.sidebar.radio[0].set_value("📋 วางแผนต้นวัน").run()
 at.session_state["do_df"] = pd.DataFrame(
     [{"DO No.": "S1", "Product": "MMA1", "Volume (ton)": 14.0, "Transport Co.": "SV",
-      "Requested Time": "", "Margin (min)": 0}], columns=list(at.session_state["do_df"].columns))
+      "Requested Time": "", "Margin (min)": 0, "Plan truck": ""}],
+    columns=list(at.session_state["do_df"].columns))
 at.session_state["maintenance"] = []
 at.run()
 [b for b in at.button if "Run Scheduler" in b.label][0].click().run()

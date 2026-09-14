@@ -11,12 +11,68 @@ it frees up) and each event carries the three things a planner asks about a
 truck: when, who, and how long. Idle stretches are drawn explicitly as hatched
 "ว่าง N น." blocks so wasted bay time is visible rather than implied by a gap.
 
-Pure HTML/CSS - no JS, no chart library. Rendered through st.markdown.
+Rendered through st.markdown -- almost pure HTML/CSS, no chart library. The one
+exception is picking which DO to reschedule: `allow_pick` marks eligible truck
+cards clickable and reports the clicked DO's id back to Python, so a planner
+picks a card on the board itself instead of a separate dropdown. Confirming a
+new channel/time for that DO is still ui_reschedule.py's click-to-open-modal
+flow, not a drag -- only *which* DO to open the modal for is picked here.
+
+st.markdown() inserts this HTML straight into the MAIN app document, but --
+confirmed empirically -- Streamlit strips every inline on* event-handler
+attribute (onclick, ...) even with unsafe_allow_html=True; plain attributes
+such as data-* survive untouched. So the clickable cards below carry only a
+static `data-do-id`, and the actual `click` listener is wired the one place
+real executable JS is available: inside the `streamlit_javascript` bridge at
+the bottom of `render()`.
+
+IMPORTANT lesson learned the hard way: each call to the bridge (a new `key`,
+one per pick consumed -- see the nonce comment in render()) mounts its OWN
+iframe, and Streamlit tears the OLD one down when it does. A listener attached
+to `window.parent.document` from *inside* that old iframe's JS realm does not
+survive the teardown -- it goes quietly dead, even though nothing ever called
+removeEventListener on it. The first version of this bridge wired ONE
+"permanent" document listener, guarded by a `window.parent.__wired` flag so
+later mounts would not re-attach it -- which meant exactly one click ever
+worked per page load: the first remount killed the only working listener, and
+every later mount trusted the (now-dead) flag and skipped adding a new one.
+The fix below has NO permanent listener and NO wired flag: every mount adds
+its OWN listener and removes it the moment it fires, so whichever mount is
+currently alive is always the one doing the catching.
 """
 import streamlit as st
+from streamlit_javascript import st_javascript
 
 from scheduler_engine import CHANNEL_ELIGIBILITY, CHANNELS, min_to_hhmm
 from ui_theme import FAMILY_COLORS, PRODUCT_COLORS, esc as _esc
+
+
+def _attr_esc(text) -> str:
+    """Escape a value for a double-quoted HTML attribute (esc() in ui_theme does
+    not escape quotes, which is fine for text content but breaks an attribute)."""
+    return (str(text).replace("&", "&amp;").replace('"', "&quot;")
+            .replace("<", "&lt;").replace(">", "&gt;"))
+
+
+# Waits for exactly one click on a clickable truck card and resolves with
+# {do_id}; see the module docstring for why this listener is scoped to THIS
+# mount only, not shared/permanent. Must be a single JS *expression* -
+# st_javascript wraps whatever it is given as `return <this>` inside an async
+# IIFE and awaits the result. .strip() matters, not just tidiness:
+# st_javascript splices this straight after a bare `return ` (return<CODE>),
+# and JS's automatic-semicolon-insertion turns `return` immediately followed
+# by a newline into `return;` -- silently discarding the whole bridge.
+_CLICK_BRIDGE_JS = """
+new Promise(function(resolve){
+  function onClick(e){
+    var el = e.target && e.target.closest && e.target.closest('.ev.clickable');
+    if (!el) { return; }
+    window.parent.document.removeEventListener('click', onClick);
+    resolve({do_id: el.dataset.doId});
+  }
+  window.parent.document.addEventListener('click', onClick);
+})
+""".strip()
 
 # Which products may use each bay, derived from the eligibility table so the
 # header chips can never drift from the constraint the solver actually enforces.
@@ -107,6 +163,10 @@ _CSS = """
 .tmcal .ev.s-late{ border-color:var(--crit); border-width:2px; background:var(--crit-soft); }
 .tmcal .ev.s-late .tag{ background:var(--crit); color:#fff; }
 .tmcal .ev .lock{ color:var(--warn); }
+.tmcal .ev.clickable{ cursor:pointer; }
+.tmcal .ev.clickable:hover{ outline:2px solid var(--accent-line); outline-offset:1px; }
+.tmcal .ev.selected{ outline:2px solid var(--accent); outline-offset:1px;
+  box-shadow:0 0 0 3px var(--accent-soft); }
 </style>
 """
 
@@ -178,17 +238,25 @@ def _event_state(r, now_min):
     return "s-eta", f"ถึง {min_to_hhmm(eta)}"
 
 
-def _event(r, top, height, now_min):
+def _event(r, top, height, now_min, clickable=False, selected=False):
     cls, tag = _event_state(r, now_min)
+    # `clickable` already means "still reschedulable" (see render()'s clickable_ids) --
+    # a DO the planner pinned once via the reschedule flow reads as is_fixed just like a
+    # genuine hard-deadline DO, but it is not actually locked from the planner's point of
+    # view, so neither the badge nor the inline icon should claim it is.
+    if clickable and tag == "ล็อกเวลา":
+        cls, tag = "", ""
     short = " short" if height < SHORT_EVENT_PX else ""
     colour = PRODUCT_COLORS.get(r["product"], "#0B5FA5")
-    lock = '<span class="lock">🔒</span> ' if r["is_fixed"] else ""
+    lock = '<span class="lock">🔒</span> ' if r["is_fixed"] and not clickable else ""
     margin = f' (+{r["margin"]})' if r.get("margin") else ""
     tag_html = f'<span class="tag">{_esc(tag)}</span>' if tag else ""
     done_mark = " ✓" if cls == "s-done" else ""
+    extra_cls = (" clickable" if clickable else "") + (" selected" if selected else "")
+    pick_attr = f' data-do-id="{_attr_esc(r["id"])}"' if clickable else ""
     return (
-        f'<div class="ev {cls}{short}" style="top:{top:.1f}px;height:{height:.1f}px;'
-        f'border-left-color:{colour}">{tag_html}'
+        f'<div class="ev {cls}{short}{extra_cls}" style="top:{top:.1f}px;height:{height:.1f}px;'
+        f'border-left-color:{colour}"{pick_attr}>{tag_html}'
         f'<div class="e1">{lock}{r["start_hhmm"]}–{r["end_hhmm"]} '
         f'<span style="color:{colour}">{_esc(r["product"])}</span>{done_mark}</div>'
         f'<div class="e2">{_esc(r.get("company") or "—")}</div>'
@@ -196,8 +264,15 @@ def _event(r, top, height, now_min):
         f'</div>')
 
 
-def render(schedule, cfg, summary, *, now_min=None, px_per_hour: int = 62):
-    """Draw the whole board. `schedule` and `summary` come straight from the solver."""
+def render(schedule, cfg, summary, *, now_min=None, px_per_hour: int = 62,
+           clickable_ids=None, selected_id=None):
+    """Draw the whole board. `schedule` and `summary` come straight from the solver.
+
+    When `clickable_ids` is given, truck cards whose id is in that set can be
+    clicked to pick which DO the reschedule card (ui_reschedule.py) below should
+    act on; `selected_id` highlights whichever one is currently picked. Returns
+    the clicked DO's id once (consume it like any other one-shot component
+    result), or None (nothing clicked / picking not enabled)."""
     ppm = px_per_hour / 60.0
     start, end = cfg.window_start_min, cfg.window_end_min
     height = (end - start) * ppm
@@ -259,8 +334,10 @@ def render(schedule, cfg, summary, *, now_min=None, px_per_hour: int = 62):
                     f'<div class="gap" style="top:{y(a["end"]):.1f}px;'
                     f'height:{gap * ppm - 2:.1f}px">ว่าง {_fmt_min(gap)} น.</div>')
         for r in rows:
+            clickable = clickable_ids is not None and r["id"] in clickable_ids
+            selected = clickable and r["id"] == selected_id
             body.append(_event(r, y(r["start"]), max(18.0, (r["end"] - r["start"]) * ppm - 2),
-                               now_min))
+                               now_min, clickable=clickable, selected=selected))
         lanes.append(f'<div class="lane" style="height:{height:.1f}px">{"".join(body)}</div>')
 
     # grid row 1 = axis spacer + column headers, row 2 = time axis + lanes, so the
@@ -272,6 +349,18 @@ def render(schedule, cfg, summary, *, now_min=None, px_per_hour: int = 62):
 
     st.markdown(_CSS.replace("var(--mono)", '"IBM Plex Mono",ui-monospace,Menlo,monospace')
                 + f'<div class="tmcal-scroll">{grid}</div>', unsafe_allow_html=True)
+
+    if clickable_ids is None:
+        return None
+    # A fresh key each time a click is consumed forces Streamlit to mount a brand new
+    # component instance (a fresh pending Promise) next render; reusing the same key
+    # would keep returning this same already-handled value on every rerun after it.
+    nonce = st.session_state.get("_tmcal_pick_nonce", 0)
+    picked = st_javascript(_CLICK_BRIDGE_JS, key=f"tmcal_pick_{nonce}")
+    if isinstance(picked, dict) and picked.get("do_id"):
+        st.session_state["_tmcal_pick_nonce"] = nonce + 1
+        return picked["do_id"]
+    return None
 
 
 def legend_entries():

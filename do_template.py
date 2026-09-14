@@ -40,16 +40,17 @@ COLUMNS = [
     ("Transport Co.", 16, "เลือกจาก dropdown — Yusen ใช้ตาราง standard คนละชุด (ดูท้าย sheet นี้)"),
     ("Requested Time", 18, "HH:MM = hard deadline ต้องโหลดเวลานั้นเป๊ะ · เว้นว่าง = ยืดหยุ่น"),
     ("Margin (min)", 14, "เวลาเผื่อเฉพาะ DO นี้ (นาที) เว้นว่าง = 0"),
+    ("Plan truck", 14, "ทะเบียน/รหัสรถ (ไม่บังคับ) — ใช้จับคู่รถคันเดียวกันที่วิ่งหลายรอบ เว้นว่างได้"),
 ]
 DATA_ROWS = 200  # rows pre-formatted with dropdowns / validation
 
 EXAMPLE_ROWS = [
-    ("DO1001", "MMA2", 29.0, "ศรีไทย", "08:00", 0),
-    ("DO1002", "MAA1", 22.0, "SV", "", 0),
-    ("DO1003", "MAA3", 14.0, "VIV", "10:30", 5),
-    ("DO1004", "i-BMA", 14.0, "Yusen", "", 0),
-    ("DO1005", "MMA1", 25.0, "Yusen", "", 10),
-    ("DO1006", "n-BMA1", 14.0, "VIV", "14:00", 0),
+    ("DO1001", "MMA2", 29.0, "ศรีไทย", "08:00", 0, ""),
+    ("DO1002", "MAA1", 22.0, "SV", "", 0, ""),
+    ("DO1003", "MAA3", 14.0, "VIV", "10:30", 5, ""),
+    ("DO1004", "i-BMA", 14.0, "Yusen", "", 0, ""),
+    ("DO1005", "MMA1", 25.0, "Yusen", "", 10, ""),
+    ("DO1006", "n-BMA1", 14.0, "VIV", "14:00", 0, "70-1234"),
 ]
 
 HEAD_FILL = PatternFill("solid", fgColor="1F3864")
@@ -100,6 +101,7 @@ def _add_validations(ws, last_row):
         ws.cell(row=row, column=3).number_format = "0.0"
         ws.cell(row=row, column=5).number_format = "@"   # keep 08:00 as text, not a date
         ws.cell(row=row, column=6).number_format = "0"
+        ws.cell(row=row, column=7).number_format = "@"   # keep a truck plate like "70-1234" as text
 
 
 def _build_lists_sheet(wb):
@@ -206,7 +208,10 @@ def _build_example_sheet(wb):
             if j == 5:
                 cell.number_format = "@"
                 cell.alignment = Alignment(horizontal="center")
-    # the note sits outside the six data columns so this sheet stays uploadable as-is
+            if j == 7:
+                cell.number_format = "@"
+                cell.alignment = Alignment(horizontal="center")
+    # the note sits outside the data columns so this sheet stays uploadable as-is
     note = ws.cell(row=2, column=len(COLUMNS) + 2,
                    value="ตัวอย่างการกรอก — DO1001 / DO1003 / DO1006 เป็น hard deadline "
                          "ส่วนแถวที่เว้น Requested Time ไว้ ระบบจะจัดเวลาให้เอง")
